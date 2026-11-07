@@ -1,0 +1,2682 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Flight Simulator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+      touch-action: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+
+    /* UI Customizable Base Elements */
+    .customizable-ui {
+      position: absolute;
+      touch-action: none;
+      z-index: 15;
+    }
+
+    .edit-mode .customizable-ui {
+      outline: 2px dashed #00e5ff !important;
+      cursor: move !important;
+      pointer-events: auto !important;
+    }
+
+    /* Resize Handle for UI Customization */
+    .ui-resize-handle {
+      display: none;
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      width: 16px;
+      height: 16px;
+      background: #00e5ff;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      cursor: se-resize;
+      z-index: 100;
+    }
+
+    .edit-mode .ui-resize-handle {
+      display: block;
+    }
+    
+    /* HUD Overlay */
+    #hud {
+      top: 40px;
+      left: 35px;
+      color: white;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 10px 14px;
+      border-radius: 8px;
+      pointer-events: none;
+      min-width: 180px;
+      display: none;
+      backdrop-filter: blur(4px);
+    }
+
+    #thrust-container {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    #thrust-label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    #thrust-bg {
+      width: 100%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    #thrust-fill {
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50 0%, #ffeb3b 70%, #f44336 100%);
+    }
+    .hud-text {
+      font-size: 13px;
+      margin-top: 4px;
+      font-weight: bold;
+    }
+
+    /* Mobile Controls Overlay */
+    #mobile-controls {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 12;
+      display: none;
+    }
+
+    #joystick-zone {
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      left: calc(20px + env(safe-area-inset-left, 0px));
+      width: 140px;
+      height: 140px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #joystick-knob {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 50px; height: 50px;
+      margin-top: -25px; margin-left: -25px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
+
+    #throttle-zone {
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      right: calc(20px + env(safe-area-inset-right, 0px));
+      width: 60px;
+      height: 180px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 30px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #throttle-handle {
+      position: absolute;
+      bottom: 50%; left: 5px;
+      width: 50px; height: 30px;
+      margin-bottom: -15px;
+      background: #00e5ff;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,229,255,0.5);
+      pointer-events: none;
+    }
+
+    .rudder-btn {
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      width: 55px; height: 55px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      color: white;
+      font-weight: bold;
+      font-size: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #btn-rudder-left { right: calc(160px + env(safe-area-inset-right, 0px)); }
+    #btn-rudder-right { right: calc(95px + env(safe-area-inset-right, 0px)); }
+
+    #mobile-pause-btn {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 13px;
+      pointer-events: auto;
+      display: none;
+      margin-bottom: 8px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* 灰色のオーバーレイ：上下左右間隔開け、角丸、透明感・ぼやけ効果 */
+    #pause-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      width: auto;
+      height: auto;
+      background: rgba(40, 40, 40, 0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: block;
+      pointer-events: auto;
+      z-index: 5;
+    }
+
+    /* Config Panel Layout */
+    #menu-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      width: auto;
+      height: auto;
+      padding: 16px;
+      color: white;
+      font-size: 12px;
+      display: flex;
+      flex-direction: row;
+      z-index: 20;
+      gap: 16px;
+      pointer-events: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 左側の縦並びタブヘッダー */
+    .tab-header {
+      display: flex;
+      flex-direction: column;
+      width: 160px;
+      flex-shrink: 0;
+      gap: 10px;
+      border: none;
+      margin-bottom: 0;
+    }
+
+    /* 水色透明感・ぼかし・角丸ボタンデザイン */
+    .tab-btn {
+      width: 100%;
+      padding: 12px 10px;
+      background: rgba(0, 229, 255, 0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      color: #b3f5ff;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      margin: 0;
+      border-radius: 12px;
+      text-align: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .tab-btn:hover {
+      background: rgba(0, 229, 255, 0.25);
+    }
+
+    .tab-btn.active {
+      background: rgba(0, 229, 255, 0.35);
+      border: 1px solid rgba(0, 229, 255, 0.8);
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+    }
+
+    /* 「ゲームを再開」ボタン：緑色・透明感・ぼかし・角丸 */
+    .btn-resume {
+      background: rgba(40, 167, 69, 0.4);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(40, 167, 69, 0.8);
+      color: #ffffff;
+      font-weight: bold;
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+      transition: all 0.2s ease;
+    }
+    .btn-resume:hover {
+      background: rgba(40, 167, 69, 0.65);
+      box-shadow: 0 0 20px rgba(40, 167, 69, 0.5);
+    }
+
+    /* Minimap Panel & Arrow Sprite Overlay */
+    #map-container {
+      top: calc(20px + env(safe-area-inset-top, 0px));
+      right: calc(20px + env(safe-area-inset-right, 0px));
+      width: 144px; height: 144px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      z-index: 4;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    #map-canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+    #map-arrow-sprite {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin-top: -10px;
+      margin-left: -10px;
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab-content.active {
+      display: flex;
+    }
+
+    .menu-section {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      flex-shrink: 0;
+    }
+    
+    #drop-note {
+      color: #00e5ff;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    button {
+      background: #444;
+      color: #fff;
+      border: 1px solid #777;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 4px;
+      margin-right: 4px;
+      font-size: 12px;
+    }
+    button:hover { background: #666; }
+    .btn-highlight { background: #008cba; border-color: #00a8e8; }
+    .btn-danger { background: #c82333; border: 1px solid #bd2130; color: #fff; }
+    .btn-action { background: #3a3a3a; border: 1px solid #666; color: #fff; }
+
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+      margin-top: 6px;
+      width: 100%;
+    }
+    .slider-group input[type="range"], .slider-group select {
+      width: 100%;
+      margin-bottom: 4px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    #preset-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .preset-card {
+      background: #2b2b2b;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .preset-name {
+      color: #fff;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 8px;
+      flex: 1;
+    }
+    .preset-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    #preview-container {
+      width: 100%;
+      height: 180px;
+      background: #111;
+      border: 1px solid #444;
+      border-radius: 6px;
+      margin-top: 6px;
+      position: relative;
+      touch-action: none;
+    }
+    #preview-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #mode-indicator {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: bold;
+      background: #00e5ff;
+      color: #000;
+      margin-left: 6px;
+    }
+
+    @media (max-width: 600px) {
+      #hud { font-size: 11px; padding: 6px 10px; min-width: 140px; }
+      .hud-text { font-size: 11px; }
+      .rudder-btn { font-size: 14px; }
+      .tab-header { width: 120px; }
+      .tab-btn { font-size: 11px; padding: 10px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 2D Minimap Panel & Arrow Sprite -->
+  <div id="map-container" class="customizable-ui" data-ui-id="map-container">
+    <canvas id="map-canvas"></canvas>
+    <svg id="map-arrow-sprite" viewBox="0 0 20 20">
+      <polygon points="10,2 17,17 10,13 3,17" fill="#00e5ff" stroke="#ffffff" stroke-width="1.5"/>
+    </svg>
+    <div class="ui-resize-handle"></div>
+  </div>
+
+  <!-- ポーズオーバーレイ（背景背景ぼやけ） -->
+  <div id="pause-overlay"></div>
+
+  <div id="hud" class="customizable-ui" data-ui-id="hud">
+    <button id="mobile-pause-btn" onclick="togglePause()">MENU</button>
+    <div class="hud-text">モード: <span id="mode-indicator">MOBILE</span></div>
+    <div class="hud-text">速度 (Speed): <span id="speed-text">0</span> km/h</div>
+    <div class="hud-text">高度 (Alt): <span id="alt-text">0</span> m</div>
+    <div class="hud-text">Gフォース: <span id="gforce-text">1.0</span> G</div>
+    <div class="hud-text">座標 (Pos): X:<span id="pos-x">0</span> Y:<span id="pos-y">0</span> Z:<span id="pos-z">0</span></div>
+
+    <div id="thrust-container">
+      <div id="thrust-label">
+        <span>推力 (Thrust):</span>
+        <span id="thrust-text">50%</span>
+      </div>
+      <div id="thrust-bg">
+        <div id="thrust-fill"></div>
+      </div>
+    </div>
+    <div class="ui-resize-handle"></div>
+  </div>
+
+  <!-- Mobile Controls Overlay -->
+  <div id="mobile-controls">
+    <div id="joystick-zone" class="customizable-ui" data-ui-id="joystick-zone">
+      <div id="joystick-knob"></div>
+      <div class="ui-resize-handle"></div>
+    </div>
+    <div id="btn-rudder-left" class="rudder-btn customizable-ui" data-ui-id="btn-rudder-left">
+      Q
+      <div class="ui-resize-handle"></div>
+    </div>
+    <div id="btn-rudder-right" class="rudder-btn customizable-ui" data-ui-id="btn-rudder-right">
+      E
+      <div class="ui-resize-handle"></div>
+    </div>
+    <div id="throttle-zone" class="customizable-ui" data-ui-id="throttle-zone">
+      <div id="throttle-handle"></div>
+      <div class="ui-resize-handle"></div>
+    </div>
+  </div>
+
+  <!-- Menu / Config Panel -->
+  <div id="menu-panel">
+    <!-- 左側縦一列のタブバー（上から基本設定、3Dモデル、3Dモデル設定、UIカスタム） -->
+    <div class="tab-header">
+      <button class="tab-btn active" onclick="switchTab('tab-general', this)">基本設定</button>
+      <button class="tab-btn" onclick="switchTab('tab-model', this)">3Dモデル</button>
+      <button class="tab-btn" onclick="switchTab('tab-model-settings', this)">3Dモデル設定</button>
+      <button class="tab-btn" onclick="switchTab('tab-ui-custom', this)">UIカスタム</button>
+    </div>
+
+    <!-- 1. General Tab -->
+    <div id="tab-general" class="tab-content active">
+      <!-- 「ゲームを再開」ボタンは「基本設定」の上に配置 -->
+      <button class="btn-resume" onclick="togglePause()">▶ ゲームを再開</button>
+
+      <div class="menu-section">
+        <b style="color: #00e5ff; font-size: 13px;">ワールド操作:</b><br>
+        <button class="btn-highlight" style="width: 100%; margin-top: 6px; padding: 8px;" onclick="regenerateWorld()">🌍 ワールド再生成 (リセット)</button>
+      </div>
+
+      <div class="menu-section">
+        <b style="color: #00e5ff; font-size: 13px;">操作モード: <span id="current-mode-text">Mobile（初期状態）</span></b><br>
+        <span style="font-size: 11px; color: #ccc;">
+          キーボード入力または画面のクリックで自動的にPCモードへ切り替わります。
+        </span>
+        <br><br>
+        <b style="color: #00e5ff; font-size: 13px;">操作方法:</b><br>
+        <span style="font-size: 11px;">
+        【PC操作 (キー/マウスクリック検知時)】<br>
+        マウス移動 : 視点操作 (Pointer Lock)<br>
+        W / S : ピッチ (機首 上/下)<br>
+        A / D : ロール (機体 右/左)<br>
+        Q / E : ヨー (左旋回/右旋回)<br>
+        Shift / Space : スロットル<br>
+        ホイール : ズームイン/ズームアウト<br>
+        Escキー : ポーズ切替<br><br>
+        【Mobile操作 (初期状態)】<br>
+        左スティック : ピッチ / ロール<br>
+        右レバー : スロットル調整<br>
+        Q / E ボタン : ヨー (左右旋回)<br>
+        スワイプ : カメラ回転<br>
+        ピンチ : ズームイン/ズームアウト
+        </span>
+      </div>
+
+      <div class="menu-section slider-group">
+        <b style="font-size: 13px;">飛行パラメータ設定:</b><br>
+        <label><span>推力重量比 (TWR):</span> <span id="twr-val">0.64</span></label>
+        <input type="range" id="twr-slider" min="0.1" max="3.0" step="0.05" value="0.64" oninput="updateTWR(this.value)">
+
+        <b style="font-size: 13px; display: block; margin-top: 10px;">描画パラメータ設定:</b><br>
+        <label><span>カメラ感度:</span> <span id="sens-val">1.0</span></label>
+        <input type="range" id="sens-slider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateSensitivity(this.value)">
+
+        <label><span>解像度 (スケール):</span> <span id="res-val">100%</span></label>
+        <input type="range" id="res-slider" min="0.25" max="1.0" step="0.05" value="1.0" oninput="updateResolution(this.value)">
+
+        <label><span>マップ解像度 (ピクセル数):</span> <span id="map-res-val">32x32</span></label>
+        <input type="range" id="map-res-slider" min="8" max="1024" step="8" value="32" oninput="updateMapResolution(this.value)">
+
+        <label><span>マップ表示半径:</span> <span><span id="map-radius-val">5000</span>m</span></label>
+        <input type="range" id="map-radius-slider" min="1000" max="8000" step="500" value="5000" oninput="updateMapRadius(this.value)">
+
+        <label><span>視界限界 (Far Clip):</span> <span id="far-val">4500</span></label>
+        <input type="range" id="far-slider" min="1000" max="25000" step="500" value="4500" oninput="updateFar(this.value)">
+
+        <label>フォグ方式選択:</label>
+        <select id="fog-type" onchange="updateFogMode(this.value)">
+          <option value="linear">線形 (THREE.Fog)</option>
+          <option value="exp2" selected>指数 (THREE.FogExp2)</option>
+          <option value="off">オフ (Fog なし)</option>
+        </select>
+
+        <label><span>フォグ距離/密度:</span> <span id="fog-val">0.00049</span></label>
+        <input type="range" id="fog-slider" min="1000" max="15000" step="500" value="6531" oninput="updateFogValue(this.value)">
+
+        <label><span>影の描画範囲:</span> <span id="shadow-val">100</span></label>
+        <input type="range" id="shadow-slider" min="100" max="3000" step="50" value="100" oninput="updateShadow(this.value)">
+
+        <label>影の解像度 (Shadow Map):</label>
+        <select id="shadow-map-size" onchange="updateShadowMapSize(this.value)">
+          <option value="512">512x512 (低負荷)</option>
+          <option value="1024">1024x1024 (標準)</option>
+          <option value="2048" selected>2048x2048 (高精細)</option>
+          <option value="4096">4096x4096 (超高精細)</option>
+        </select>
+
+        <label><span>モーションブラー強さ:</span> <span id="blur-val">0.60</span></label>
+        <input type="range" id="blur-slider" min="0" max="0.95" step="0.05" value="0.60" oninput="updateBlurValue(this.value)">
+        
+        <div style="margin-top: 12px; text-align: right;">
+          <button class="btn-danger" onclick="resetGeneralSettings()">基本設定をリセット</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Model Tab -->
+    <div id="tab-model" class="tab-content">
+      <div class="menu-section">
+        <b style="font-size: 13px;">1. モデル読み込み:</b><br>
+        <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)">
+        <button class="btn-highlight" onclick="document.getElementById('file-input').click()">ファイルを選択</button>
+        <button onclick="saveCurrentToPresets()">プリセット保存</button>
+        <div id="drop-note">★ .stl / .obj ファイル対応</div>
+      </div>
+
+      <div class="menu-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <b style="font-size: 13px;">2. 保存済み機体リスト:</b>
+          <button class="btn-danger" onclick="resetSavedModels()">全リスト消去</button>
+        </div>
+        <div id="preset-list"></div>
+        <div id="status-msg" style="color: #ffeb3b; margin-top: 8px;">デフォルト機体</div>
+      </div>
+    </div>
+
+    <!-- 3. Model Transform Settings Tab -->
+    <div id="tab-model-settings" class="tab-content">
+      <div class="menu-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <b style="font-size: 13px;">1. リアルタイムプレビュー:</b>
+          <button class="btn-danger" onclick="resetPreviewCamera()" style="font-size: 10px; margin: 0;">視界リセット</button>
+        </div>
+        <div id="preview-container">
+          <canvas id="preview-canvas"></canvas>
+        </div>
+        <div style="font-size: 10px; color: #aaa; margin-top: 4px;">※ドラッグでカメラ回転 / ピンチ・ホイールでズーム</div>
+      </div>
+
+      <div class="menu-section slider-group">
+        <b style="font-size: 13px;">2. 姿勢回転:</b><br>
+        <div style="margin-top: 4px;">
+          <button onclick="rotateModelY(event)">横90°</button>
+          <button onclick="rotateModelX(event)">縦90°</button>
+          <button onclick="rotateModelZ(event)">水平90°</button>
+        </div>
+
+        <b style="font-size: 13px; display: block; margin-top: 10px;">3. 軸反転:</b>
+        <div style="margin-top: 4px;">
+          <button onclick="flipModelScale('x')">X反転</button>
+          <button onclick="flipModelScale('y')">Y反転</button>
+          <button onclick="flipModelScale('z')">Z反転 (前後)</button>
+        </div>
+
+        <b style="font-size: 13px; display: block; margin-top: 10px;">4. スケール調整:</b>
+        <label><span>モデルサイズ (Scale):</span> <span id="scale-val">1.0</span></label>
+        <input type="range" id="scale-slider" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateModelScale(this.value)">
+
+        <div style="margin-top: 12px; text-align: right;">
+          <button class="btn-danger" onclick="resetModelTransformSettings()">姿勢・スケールリセット</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. UI Custom Tab -->
+    <div id="tab-ui-custom" class="tab-content">
+      <div class="menu-section">
+        <b style="font-size: 13px;">UIの位置・大きさのカスタマイズ:</b><br>
+        <span style="font-size: 11px; color: #ccc; display: block; margin-top: 4px;">
+          編集モードをONにすると、画面上の各UI（HUD、ミニマップ、操作ボタン等）をドラッグで自由に移動したり、右下の青いハンドルでサイズを変更できます。
+        </span>
+        <div style="margin-top: 10px;">
+          <button id="toggle-ui-edit-btn" class="btn-highlight" style="width: 100%; padding: 10px; font-weight: bold;" onclick="toggleUIEditMode()">✏ UI編集モードを開始</button>
+        </div>
+        <div style="margin-top: 12px; text-align: right;">
+          <button class="btn-danger" onclick="resetUILayout()">UIの位置・サイズをリセット</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/AfterimageShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/AfterimagePass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+
+  <script>
+    const currentFileName = window.location.pathname.split('/').pop() || 'index.html';
+    if (currentFileName) {
+      document.title = decodeURIComponent(currentFileName);
+    }
+
+    let currentInputMode = 'mobile';
+    let cameraSensitivity = 1.0;
+    let resolutionScale = 1.0;
+    let mapGridResolution = 32;
+    let mapRadius = 5000;
+    let isLockingPending = false;
+
+    function updateSensitivity(val, save = true) {
+      cameraSensitivity = parseFloat(val);
+      document.getElementById('sens-val').textContent = cameraSensitivity.toFixed(1);
+      if (save) saveSettings();
+    }
+
+    function updateResolution(val, save = true) {
+      resolutionScale = parseFloat(val);
+      document.getElementById('res-val').textContent = `${Math.round(resolutionScale * 100)}%`;
+      handleResize();
+      if (save) saveSettings();
+    }
+
+    function updateMapResolution(val, save = true) {
+      mapGridResolution = parseInt(val);
+      document.getElementById('map-res-val').textContent = `${mapGridResolution}x${mapGridResolution}`;
+      if (mapCanvas) {
+        mapCanvas.width = mapGridResolution;
+        mapCanvas.height = mapGridResolution;
+      }
+      if (save) saveSettings();
+    }
+
+    function updateMapRadius(val, save = true) {
+      mapRadius = parseInt(val);
+      document.getElementById('map-radius-val').textContent = mapRadius;
+      if (save) saveSettings();
+    }
+
+    function updateTWR(val, save = true) {
+      const twr = parseFloat(val);
+      MAX_THRUST = MASS * GRAVITY * twr;
+      document.getElementById('twr-val').textContent = twr.toFixed(2);
+      if (save) saveSettings();
+    }
+
+    function updateMapPosition() {
+      // マップの位置追従処理を無効化
+    }
+
+    function switchToPCMode() {
+      if (currentInputMode === 'pc') return;
+      currentInputMode = 'pc';
+      
+      const modeInd = document.getElementById('mode-indicator');
+      const curModeText = document.getElementById('current-mode-text');
+      if (modeInd) {
+        modeInd.textContent = 'PC';
+        modeInd.style.background = '#00e5ff';
+      }
+      if (curModeText) {
+        curModeText.textContent = 'PC（入力検知）';
+      }
+
+      if (!isPaused) {
+        document.getElementById('mobile-controls').style.display = 'none';
+        document.getElementById('mobile-pause-btn').style.display = 'none';
+        requestPointerLockSafe();
+      } else {
+        document.getElementById('mobile-controls').style.display = 'none';
+        document.getElementById('mobile-pause-btn').style.display = 'none';
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      switchToPCMode();
+    }, { once: false });
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') {
+        switchToPCMode();
+      }
+    }, { passive: true });
+
+    // --- IndexedDB ---
+    const DB_NAME = 'AIFS_ModelDB_v2';
+    const STORE_NAME = 'models';
+    let dbInstance = null;
+
+    function initDB() {
+      return new Promise((resolve) => {
+        if (dbInstance) return resolve(dbInstance);
+        try {
+          const req = indexedDB.open(DB_NAME, 1);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            }
+          };
+          req.onsuccess = (e) => {
+            dbInstance = e.target.result;
+            resolve(dbInstance);
+          };
+          req.onerror = () => resolve(null);
+        } catch(e) {
+          resolve(null);
+        }
+      });
+    }
+
+    async function idbSaveModel(modelData) {
+      const db = await initDB();
+      if (!db) return false;
+
+      let existingId = null;
+      try {
+        const allModels = await idbGetAllModels();
+        const existing = allModels.find(item => item.name === modelData.name);
+        if (existing) existingId = existing.id;
+      } catch(e) {}
+
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const dataToSave = { ...modelData };
+          if (existingId !== null) {
+            dataToSave.id = existingId;
+          }
+          const putReq = store.put(dataToSave);
+          putReq.onsuccess = () => resolve(true);
+          putReq.onerror = (err) => { resolve(false); };
+        } catch(e) {
+          resolve(false);
+        }
+      });
+    }
+
+    async function idbGetAllModels() {
+      const db = await initDB();
+      if (!db) return [];
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch(e) {
+          resolve([]);
+        }
+      });
+    }
+
+    async function idbDeleteModel(id) {
+      const db = await initDB();
+      if (!db) return;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.delete(id);
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        } catch(e) {
+          resolve();
+        }
+      });
+    }
+
+    async function idbClearAllModels() {
+      const db = await initDB();
+      if (!db) return;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        } catch(e) {
+          resolve();
+        }
+      });
+    }
+
+    let isPaused = true;
+
+    function switchTab(tabId, btnElem) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (btnElem) btnElem.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId === 'tab-model-settings') {
+        setTimeout(resizePreviewCanvas, 10);
+      }
+    }
+
+    // --- UI Customization Engine ---
+    let isUIEditMode = false;
+    let uiLayoutData = {};
+
+    function toggleUIEditMode() {
+      isUIEditMode = !isUIEditMode;
+      const btn = document.getElementById('toggle-ui-edit-btn');
+      const menuPanel = document.getElementById('menu-panel');
+      const hud = document.getElementById('hud');
+      const mobileControls = document.getElementById('mobile-controls');
+
+      if (isUIEditMode) {
+        document.body.classList.add('edit-mode');
+        btn.textContent = '✔️ UI編集モードを終了して保存';
+        btn.style.background = '#28a745';
+        
+        // UI編集中の可視化
+        hud.style.display = 'block';
+        mobileControls.style.display = 'block';
+        menuPanel.style.opacity = '0.35';
+      } else {
+        document.body.classList.remove('edit-mode');
+        btn.textContent = '✏ UI編集モードを開始';
+        btn.style.background = '#008cba';
+        
+        if (isPaused) {
+          hud.style.display = 'none';
+          mobileControls.style.display = 'none';
+        }
+        menuPanel.style.opacity = '1.0';
+        saveUILayout();
+      }
+    }
+
+    function initUICustomizer() {
+      const elements = document.querySelectorAll('.customizable-ui');
+
+      elements.forEach(el => {
+        const uiId = el.getAttribute('data-ui-id');
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startLeft, startTop, startWidth, startHeight;
+
+        const handle = el.querySelector('.ui-resize-handle');
+
+        el.addEventListener('pointerdown', (e) => {
+          if (!isUIEditMode) return;
+          if (e.target === handle) {
+            isResizing = true;
+          } else {
+            isDragging = true;
+          }
+
+          startX = e.clientX;
+          startY = e.clientY;
+
+          const rect = el.getBoundingClientRect();
+          startLeft = rect.left;
+          startTop = rect.top;
+          startWidth = rect.width;
+          startHeight = rect.height;
+
+          el.setPointerCapture(e.pointerId);
+          e.stopPropagation();
+        });
+
+        el.addEventListener('pointermove', (e) => {
+          if (!isUIEditMode) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+
+          if (isDragging) {
+            const newLeft = startLeft + dx;
+            const newTop = startTop + dy;
+            el.style.left = `${newLeft}px`;
+            el.style.top = `${newTop}px`;
+            el.style.bottom = 'auto';
+            el.style.right = 'auto';
+
+            if (!uiLayoutData[uiId]) uiLayoutData[uiId] = {};
+            uiLayoutData[uiId].left = newLeft;
+            uiLayoutData[uiId].top = newTop;
+          } else if (isResizing) {
+            const newWidth = Math.max(30, startWidth + dx);
+            const newHeight = Math.max(30, startHeight + dy);
+            el.style.width = `${newWidth}px`;
+            el.style.height = `${newHeight}px`;
+
+            if (!uiLayoutData[uiId]) uiLayoutData[uiId] = {};
+            uiLayoutData[uiId].width = newWidth;
+            uiLayoutData[uiId].height = newHeight;
+          }
+        });
+
+        const endDrag = (e) => {
+          if (isDragging || isResizing) {
+            isDragging = false;
+            isResizing = false;
+            try { el.releasePointerCapture(e.pointerId); } catch(err) {}
+            saveUILayout();
+          }
+        };
+
+        el.addEventListener('pointerup', endDrag);
+        el.addEventListener('pointercancel', endDrag);
+      });
+
+      loadUILayout();
+    }
+
+    function saveUILayout() {
+      try {
+        localStorage.setItem('ai_fs_1_8_ui_layout', JSON.stringify(uiLayoutData));
+      } catch(e) {}
+    }
+
+    function loadUILayout() {
+      try {
+        const saved = localStorage.getItem('ai_fs_1_8_ui_layout');
+        if (!saved) return;
+        uiLayoutData = JSON.parse(saved);
+
+        for (const [uiId, layout] of Object.entries(uiLayoutData)) {
+          const el = document.querySelector(`[data-ui-id="${uiId}"]`);
+          if (el) {
+            if (layout.left !== undefined) {
+              el.style.left = `${layout.left}px`;
+              el.style.right = 'auto';
+            }
+            if (layout.top !== undefined) {
+              el.style.top = `${layout.top}px`;
+              el.style.bottom = 'auto';
+            }
+            if (layout.width !== undefined) {
+              el.style.width = `${layout.width}px`;
+            }
+            if (layout.height !== undefined) {
+              el.style.height = `${layout.height}px`;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    function resetUILayout() {
+      if (!confirm("UIの位置とサイズを初期状態にリセットしますか？")) return;
+      localStorage.removeItem('ai_fs_1_8_ui_layout');
+      uiLayoutData = {};
+      const elements = document.querySelectorAll('.customizable-ui');
+      elements.forEach(el => {
+        el.style.left = '';
+        el.style.top = '';
+        el.style.right = '';
+        el.style.bottom = '';
+        el.style.width = '';
+        el.style.height = '';
+      });
+      alert("UIレイアウトをリセットしました。");
+    }
+
+    // --- Three.js Setup ---
+    const scene = new THREE.Scene();
+    const skyColor = new THREE.Color(0x87ceeb);
+    scene.background = skyColor;
+    scene.fog = new THREE.FogExp2(skyColor, 0.00049);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 4500);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    
+    const initialPixelRatio = Math.min(window.devicePixelRatio || 1, 3) * resolutionScale;
+    renderer.setPixelRatio(initialPixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // --- 2D Canvas Map Setup ---
+    let mapCanvas, mapCtx;
+
+    function initMap() {
+      mapCanvas = document.getElementById('map-canvas');
+      mapCanvas.width = mapGridResolution;
+      mapCanvas.height = mapGridResolution;
+      mapCtx = mapCanvas.getContext('2d');
+    }
+
+    let renderTarget = new THREE.WebGLRenderTarget(
+      Math.floor(window.innerWidth * initialPixelRatio),
+      Math.floor(window.innerHeight * initialPixelRatio),
+      {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: THREE.UnsignedByteType
+      }
+    );
+
+    const composer = new THREE.EffectComposer(renderer, renderTarget);
+    composer.setPixelRatio(initialPixelRatio);
+    const renderPass = new THREE.RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const afterimagePass = new THREE.AfterimagePass();
+    afterimagePass.uniforms['damp'].value = 0.60;
+    composer.addPass(afterimagePass);
+
+    const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
+    fxaaPass.uniforms['resolution'].value.x = 1 / (window.innerWidth * initialPixelRatio);
+    fxaaPass.uniforms['resolution'].value.y = 1 / (window.innerHeight * initialPixelRatio);
+    composer.addPass(fxaaPass);
+
+    function updateBlurValue(val, save = true) {
+      val = parseFloat(val);
+      afterimagePass.uniforms['damp'].value = val;
+      document.getElementById('blur-val').textContent = val.toFixed(2);
+      if (save) saveSettings();
+    }
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+
+    let shadowDist = 100;
+    dirLight.shadow.camera.near = 1.0;
+    dirLight.shadow.camera.far = 2000.0;
+    dirLight.shadow.camera.left = -shadowDist;
+    dirLight.shadow.camera.right = shadowDist;
+    dirLight.shadow.camera.top = shadowDist;
+    dirLight.shadow.camera.bottom = -shadowDist;
+    dirLight.shadow.bias = -0.0003;
+    dirLight.shadow.normalBias = 0.03;
+
+    scene.add(dirLight);
+    scene.add(dirLight.target);
+
+    function updateShadowMapSize(val, save = true) {
+      const size = parseInt(val);
+      dirLight.shadow.mapSize.width = size;
+      dirLight.shadow.mapSize.height = size;
+      if (dirLight.shadow.map) {
+        dirLight.shadow.map.dispose();
+        dirLight.shadow.map = null;
+      }
+      if (save) saveSettings();
+    }
+
+    function updateFar(val, save = true) {
+      val = parseFloat(val);
+      camera.far = val;
+      camera.updateProjectionMatrix();
+      document.getElementById('far-val').textContent = val;
+      if (save) saveSettings();
+    }
+
+    let currentFogType = 'exp2';
+
+    function updateFogMode(type, save = true) {
+      currentFogType = type;
+      const sliderVal = parseFloat(document.getElementById('fog-slider').value);
+
+      if (type === 'off') {
+        scene.fog = null;
+        document.getElementById('fog-val').textContent = "オフ";
+      } else if (type === 'linear') {
+        scene.fog = new THREE.Fog(skyColor, 1000, sliderVal);
+        document.getElementById('fog-val').textContent = `1000〜${sliderVal}`;
+      } else if (type === 'exp2') {
+        const density = 3.2 / sliderVal;
+        scene.fog = new THREE.FogExp2(skyColor, density);
+        document.getElementById('fog-val').textContent = density.toFixed(5);
+      }
+
+      scene.traverse((child) => {
+        if (child.isMesh && child.material) child.material.needsUpdate = true;
+      });
+      if (save) saveSettings();
+    }
+
+    function updateFogValue(val, save = true) {
+      val = parseFloat(val);
+      if (currentFogType === 'linear') {
+        if (!scene.fog) scene.fog = new THREE.Fog(skyColor, 1000, val);
+        scene.fog.far = val;
+        document.getElementById('fog-val').textContent = `1000〜${val}`;
+      } else if (currentFogType === 'exp2') {
+        const density = 3.2 / val;
+        if (!scene.fog) scene.fog = new THREE.FogExp2(skyColor, density);
+        scene.fog.density = density;
+        document.getElementById('fog-val').textContent = density.toFixed(5);
+      }
+      if (save) saveSettings();
+    }
+
+    function updateShadow(val, save = true) {
+      shadowDist = parseFloat(val);
+      dirLight.shadow.camera.left = -shadowDist;
+      dirLight.shadow.camera.right = shadowDist;
+      dirLight.shadow.camera.top = shadowDist;
+      dirLight.shadow.camera.bottom = -shadowDist;
+      dirLight.shadow.camera.updateProjectionMatrix();
+      document.getElementById('shadow-val').textContent = shadowDist;
+      if (save) saveSettings();
+    }
+
+    // --- Terrain Procedural Generation ---
+    function hash(x, z) {
+      const ix = Math.floor(x);
+      const iz = Math.floor(z);
+      let h = Math.imul(ix, 374761393) + Math.imul(iz, 668265263);
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    }
+
+    function noise(x, z) {
+      const ix = Math.floor(x);
+      const iz = Math.floor(z);
+      const fx = x - ix;
+      const fz = z - iz;
+
+      const ux = fx * fx * (3.0 - 2.0 * fx);
+      const uz = fz * fz * (3.0 - 2.0 * fz);
+
+      const a = hash(ix, iz);
+      const b = hash(ix + 1, iz);
+      const c = hash(ix, iz + 1);
+      const d = hash(ix + 1, iz + 1);
+
+      return a * (1 - ux) * (1 - uz) +
+             b * ux * (1 - uz) +
+             c * (1 - ux) * uz +
+             d * ux * uz;
+    }
+
+    function fbm(x, z) {
+      let total = 0, amp = 1.0, freq = 1.0, maxVal = 0;
+      for (let i = 0; i < 4; i++) {
+        total += noise(x * freq, z * freq) * amp;
+        maxVal += amp;
+        amp *= 0.5;
+        freq *= 2.0;
+      }
+      return total / maxVal;
+    }
+
+    let terrainData = { offsetX: Math.random() * 1000, offsetZ: Math.random() * 1000, peaks: [] };
+    let terrainMesh = null;
+
+    function getTerrainHeight(x, z) {
+      const nx = (x + terrainData.offsetX) * 0.0006;
+      const nz = (z + terrainData.offsetZ) * 0.0006;
+      let rawY = (fbm(nx, nz) - 0.3) * 1100;
+
+      terrainData.peaks.forEach(peak => {
+        const dx = x - peak.x;
+        const dz = z - peak.z;
+        const distSq = dx * dx + dz * dz;
+        const basePeak = Math.exp(-distSq / (peak.radius * peak.radius));
+        rawY += peak.height * Math.pow(basePeak, 1.1);
+      });
+
+      const px = (x + terrainData.offsetX);
+      const pz = (z + terrainData.offsetZ);
+      const hillNoise = (fbm(px * 0.0012, pz * 0.0012) - 0.1) * 320.0;
+      const lowTerrain = Math.max(5.0, hillNoise);
+
+      if (rawY < 30) return lowTerrain;
+      else if (rawY < 200) {
+        const t = (rawY - 30) / 170;
+        const smoothT = t * t * (3 - 2 * t);
+        return lowTerrain * (1 - smoothT) + rawY * smoothT;
+      } else {
+        const heightRatio = Math.min(1.0, (rawY - 200) / 700);
+        const roughNoise = (fbm(x * 0.012, z * 0.012) - 0.5) * 160;
+        return rawY + roughNoise * heightRatio;
+      }
+    }
+
+    function createTerrain() {
+      if (terrainMesh) {
+        scene.remove(terrainMesh);
+        if (terrainMesh.geometry) terrainMesh.geometry.dispose();
+        if (terrainMesh.material) terrainMesh.material.dispose();
+      }
+
+      terrainData = { offsetX: Math.random() * 1000, offsetZ: Math.random() * 1000, peaks: [] };
+
+      const terrainSize = 20000;
+      const segments = 256;
+      const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, segments, segments);
+      geometry.rotateX(-Math.PI / 2);
+
+      const numPeaks = 6 + Math.floor(Math.random() * 6);
+      for (let p = 0; p < numPeaks; p++) {
+        terrainData.peaks.push({
+          x: (Math.random() - 0.5) * (terrainSize * 0.6),
+          z: (Math.random() - 0.5) * (terrainSize * 0.6),
+          height: 1000 + Math.random() * 500,
+          radius: 1100 + Math.random() * 500
+        });
+      }
+
+      const pos = geometry.attributes.position;
+      const colors = [];
+      const colorBase = new THREE.Color(0x3d7041);
+      const colorRock = new THREE.Color(0x5a6552);
+      const colorSnow = new THREE.Color(0xffffff);
+      const tempColor = new THREE.Color();
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        const y = getTerrainHeight(x, z);
+        pos.setY(i, y);
+
+        if (y <= 200) tempColor.copy(colorBase);
+        else if (y < 700) tempColor.copy(colorBase).lerp(colorRock, (y - 200) / 500);
+        else if (y <= 950) tempColor.copy(colorRock).lerp(colorSnow, (y - 700) / 250);
+        else tempColor.copy(colorSnow);
+
+        colors.push(tempColor.r, tempColor.g, tempColor.b);
+      }
+
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
+      terrainMesh = new THREE.Mesh(geometry, material);
+      terrainMesh.receiveShadow = true;
+      terrainMesh.castShadow = true;
+      scene.add(terrainMesh);
+    }
+
+    createTerrain();
+
+    // ワールド再生成（リセット）
+    function regenerateWorld() {
+      createTerrain();
+      airplane.position.set(0, getTerrainHeight(0, 0) + 600, 0);
+      velocity.set(0, 0, 50.0);
+      angularVelocity.set(0, 0, 0);
+      airplane.quaternion.set(0, 0, 0, 1);
+      alert("ワールドを再生成しました。");
+    }
+
+    // --- Airplane & Model Setup ---
+    const airplane = new THREE.Group();
+    const modelContainer = new THREE.Group();
+    airplane.add(modelContainer);
+
+    let currentModelData = {
+      type: 'default',
+      name: 'デフォルト機体',
+      base64: null,
+      rotX: 0, rotY: 0, rotZ: 0,
+      scale: 1.0, scaleX: 1, scaleY: 1, scaleZ: 1
+    };
+
+    let previewScene, previewCamera, previewRenderer, previewGroup;
+    let previewCamDistance = 10;
+    let previewCamRotX = 0.4, previewCamRotY = 0.6;
+    let isPreviewDragging = false;
+    let prevMousePos = { x: 0, y: 0 };
+    let previewPinchStartDist = 0;
+    let previewInitialDistance = 10;
+
+    function initPreview() {
+      const container = document.getElementById('preview-container');
+      const canvas = document.getElementById('preview-canvas');
+
+      previewScene = new THREE.Scene();
+      previewScene.background = new THREE.Color(0x1a1a1a);
+
+      previewCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+      updatePreviewCameraPosition();
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+      const light = new THREE.DirectionalLight(0xffffff, 0.8);
+      light.position.set(5, 10, 7);
+      previewScene.add(ambient, light);
+
+      const grid = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+      grid.position.y = -1.5;
+      previewScene.add(grid);
+
+      previewGroup = new THREE.Group();
+      previewScene.add(previewGroup);
+
+      previewRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      previewRenderer.setSize(container.clientWidth, container.clientHeight);
+
+      container.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch') return;
+        isPreviewDragging = true;
+        prevMousePos = { x: e.clientX, y: e.clientY };
+        container.setPointerCapture(e.pointerId);
+      });
+
+      container.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'touch') return;
+        if (!isPreviewDragging) return;
+        const deltaX = e.clientX - prevMousePos.x;
+        const deltaY = e.clientY - prevMousePos.y;
+
+        previewCamRotY -= deltaX * 0.01;
+        previewCamRotX += deltaY * 0.01;
+        previewCamRotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, previewCamRotX));
+
+        prevMousePos = { x: e.clientX, y: e.clientY };
+        updatePreviewCameraPosition();
+      });
+
+      const endDrag = (e) => {
+        if (isPreviewDragging) {
+          isPreviewDragging = false;
+          try { container.releasePointerCapture(e.pointerId); } catch(err) {}
+        }
+      };
+      container.addEventListener('pointerup', endDrag);
+      container.addEventListener('pointercancel', endDrag);
+
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isPreviewDragging = true;
+          prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        } else if (e.touches.length === 2) {
+          isPreviewDragging = false;
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          previewPinchStartDist = Math.hypot(dx, dy);
+          previewInitialDistance = previewCamDistance;
+        }
+        e.preventDefault();
+      }, { passive: false });
+
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isPreviewDragging) {
+          const deltaX = e.touches[0].clientX - prevMousePos.x;
+          const deltaY = e.touches[0].clientY - prevMousePos.y;
+
+          previewCamRotY -= deltaX * 0.01;
+          previewCamRotX += deltaY * 0.01;
+          previewCamRotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, previewCamRotX));
+
+          prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          updatePreviewCameraPosition();
+        } else if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const currentDist = Math.hypot(dx, dy);
+
+          if (previewPinchStartDist > 0) {
+            const factor = previewPinchStartDist / currentDist;
+            previewCamDistance = Math.max(2, Math.min(30, previewInitialDistance * factor));
+            updatePreviewCameraPosition();
+          }
+        }
+        e.preventDefault();
+      }, { passive: false });
+
+      container.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          previewPinchStartDist = 0;
+        }
+        if (e.touches.length === 1) {
+          isPreviewDragging = true;
+          prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        } else if (e.touches.length === 0) {
+          isPreviewDragging = false;
+        }
+      });
+
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        previewCamDistance += e.deltaY * 0.008;
+        previewCamDistance = Math.max(2, Math.min(30, previewCamDistance));
+        updatePreviewCameraPosition();
+      }, { passive: false });
+    }
+
+    function updatePreviewCameraPosition() {
+      if (!previewCamera) return;
+      previewCamera.position.x = previewCamDistance * Math.cos(previewCamRotX) * Math.sin(previewCamRotY);
+      previewCamera.position.y = previewCamDistance * Math.sin(previewCamRotX);
+      previewCamera.position.z = previewCamDistance * Math.cos(previewCamRotX) * Math.cos(previewCamRotY);
+      previewCamera.lookAt(0, 0, 0);
+    }
+
+    function resetPreviewCamera() {
+      previewCamDistance = 10;
+      previewCamRotX = 0.4;
+      previewCamRotY = 0.6;
+      updatePreviewCameraPosition();
+    }
+
+    function resizePreviewCanvas() {
+      if (previewRenderer && previewCamera) {
+        const container = document.getElementById('preview-container');
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          previewCamera.aspect = container.clientWidth / container.clientHeight;
+          previewCamera.updateProjectionMatrix();
+          previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          previewRenderer.setSize(container.clientWidth, container.clientHeight);
+        }
+      }
+    }
+
+    function updatePreview() {
+      if (!previewRenderer) return;
+      while (previewGroup.children.length > 0) {
+        previewGroup.remove(previewGroup.children[0]);
+      }
+      if (modelContainer.children.length > 0) {
+        const clone = modelContainer.clone();
+        previewGroup.add(clone);
+      }
+    }
+
+    function applyShadows(object) {
+      object.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+    }
+
+    // 機体の正確なバウンディングボックス／球サイズ算出（テクスチャ・メッシュに追従する正確な当たり判定用）
+    let currentPlaneRadius = 2.5;
+    let planeBoundingBox = new THREE.Box3();
+
+    function updateAirplaneCollisionBounds() {
+      planeBoundingBox.setFromObject(modelContainer);
+      const size = new THREE.Vector3();
+      planeBoundingBox.getSize(size);
+      currentPlaneRadius = Math.max(0.5, Math.max(size.x, size.y, size.z) / 2.0);
+    }
+
+    function syncModelTransforms() {
+      modelContainer.rotation.set(currentModelData.rotX, currentModelData.rotY, currentModelData.rotZ);
+      
+      const s = currentModelData.scale || 1.0;
+      const sx = (currentModelData.scaleX || 1) * s;
+      const sy = (currentModelData.scaleY || 1) * s;
+      const sz = (currentModelData.scaleZ || 1) * s;
+      modelContainer.scale.set(sx, sy, sz);
+
+      document.getElementById('scale-val').textContent = s.toFixed(1);
+      document.getElementById('scale-slider').value = s;
+
+      updateAirplaneCollisionBounds();
+      updatePreview();
+    }
+
+    function buildDefaultAirplane() {
+      while (modelContainer.children.length > 0) {
+        modelContainer.remove(modelContainer.children[0]);
+      }
+
+      const defaultGroup = new THREE.Group();
+      const bodyGeo = new THREE.ConeGeometry(1, 6, 16);
+      bodyGeo.rotateX(Math.PI / 2);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdc143c, roughness: 0.4 });
+      defaultGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
+
+      const wingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+      const wingGeo = new THREE.BoxGeometry(8, 0.1, 1.5);
+      defaultGroup.add(new THREE.Mesh(wingGeo, wingMat));
+
+      const tailGeo = new THREE.BoxGeometry(2.5, 0.1, 0.8);
+      const tail = new THREE.Mesh(tailGeo, wingMat);
+      tail.position.set(0, 0, -2.2);
+      defaultGroup.add(tail);
+
+      const vTailGeo = new THREE.BoxGeometry(0.1, 2.6, 1.2);
+      const vTail = new THREE.Mesh(vTailGeo, wingMat);
+      vTail.position.set(0, 1.3, -2.2);
+      defaultGroup.add(vTail);
+
+      applyShadows(defaultGroup);
+      modelContainer.add(defaultGroup);
+
+      currentModelData = {
+        type: 'default',
+        name: 'デフォルト機体',
+        base64: null,
+        rotX: 0, rotY: 0, rotZ: 0,
+        scale: 1.0, scaleX: 1, scaleY: 1, scaleZ: 1
+      };
+
+      syncModelTransforms();
+
+      const statusMsg = document.getElementById('status-msg');
+      if (statusMsg) statusMsg.textContent = "デフォルト機体";
+      updatePresetUI();
+    }
+
+    airplane.position.set(0, 600, 0);
+    scene.add(airplane);
+
+    const thrustText = document.getElementById('thrust-text');
+    const thrustFill = document.getElementById('thrust-fill');
+    const speedText = document.getElementById('speed-text');
+    const altText = document.getElementById('alt-text');
+    const gForceText = document.getElementById('gforce-text');
+    const posXText = document.getElementById('pos-x');
+    const posYText = document.getElementById('pos-y');
+    const posZText = document.getElementById('pos-z');
+    const statusMsg = document.getElementById('status-msg');
+
+    // --- AERODYNAMIC PHYSICS CONSTANTS & VARIABLES ---
+    const MASS = 1200.0;             // 機体重量 (kg)
+    const GRAVITY = 9.81;            // 重力加速度 (m/s^2)
+    let MAX_THRUST = 7500.0;         // 最大推力 (N) [初期値: TWR 約0.64]
+    const WING_AREA = 16.2;          // 主翼面積 (m^2)
+    const WING_SPAN = 10.8;          // 翼幅 (m)
+    const STALL_ANGLE = 16.0 * (Math.PI / 180.0); // 失速角 (rad)
+
+    // 慣性モーメント (Rotational Inertia)
+    const I_PITCH = 2100.0;
+    const I_ROLL = 1200.0;
+    const I_YAW = 3100.0;
+
+    let throttle = 0.5;
+    const velocity = new THREE.Vector3(0, 0, 50.0); // 初期速度 (m/s)
+    const angularVelocity = new THREE.Vector3(0, 0, 0); // 角速度 (rad/s)
+
+    let pitchInput = 0, rollInput = 0, yawInput = 0;
+    const keys = {};
+    const mobileInputs = { pitch: 0, roll: 0, yaw: 0 };
+
+    let cameraYaw = 0;
+    let cameraPitch = 0.2;
+    let targetCameraYaw = 0;
+    let targetCameraPitch = 0.2;
+    let cameraDistance = 12;
+    let targetCameraDistance = 12;
+    let currentPlaneHeading = 0;
+
+    function updateCameraPositionInstant() {
+      const totalYaw = currentPlaneHeading + cameraYaw;
+      const pitchFactor = Math.cos(cameraPitch);
+
+      camera.position.set(
+        airplane.position.x - cameraDistance * pitchFactor * Math.sin(totalYaw),
+        airplane.position.y + cameraDistance * Math.sin(cameraPitch),
+        airplane.position.z - cameraDistance * pitchFactor * Math.cos(totalYaw)
+      );
+      camera.lookAt(airplane.position);
+    }
+
+    // --- Pointer Lock & Pause Handling ---
+    function requestPointerLockSafe() {
+      if (currentInputMode !== 'pc') return;
+      
+      isLockingPending = true;
+
+      const handleLockError = () => {
+        isLockingPending = false;
+        setPauseState(true);
+      };
+
+      try {
+        const promise = document.body.requestPointerLock({ unadjustedMovement: true });
+        if (promise && promise.then) {
+          promise.then(() => {
+            isLockingPending = false;
+            setPauseState(false);
+          }).catch(() => {
+            try { 
+              const secondPromise = document.body.requestPointerLock();
+              if (secondPromise && secondPromise.then) {
+                secondPromise.then(() => {
+                  isLockingPending = false;
+                  setPauseState(false);
+                }).catch(handleLockError);
+              } else {
+                handleLockError();
+              }
+            } catch(err){
+              handleLockError();
+            }
+          });
+        } else {
+          setTimeout(() => {
+            if (document.pointerLockElement === document.body) {
+              isLockingPending = false;
+              setPauseState(false);
+            } else {
+              handleLockError();
+            }
+          }, 100);
+        }
+      } catch (e) {
+        handleLockError();
+      }
+    }
+
+    document.addEventListener('pointerlockerror', () => {
+      isLockingPending = false;
+      if (currentInputMode === 'pc') {
+        setPauseState(true);
+      }
+    });
+
+    function setPauseState(paused) {
+      if (isLockingPending && !paused) return;
+
+      isPaused = paused;
+      const menuPanel = document.getElementById('menu-panel');
+      const hud = document.getElementById('hud');
+      const overlay = document.getElementById('pause-overlay');
+      const mobileControls = document.getElementById('mobile-controls');
+      const mobilePauseBtn = document.getElementById('mobile-pause-btn');
+
+      if (isPaused) {
+        menuPanel.style.display = 'flex';
+        hud.style.display = 'none';
+        overlay.style.display = 'block';
+        mobileControls.style.display = 'none';
+        if (currentInputMode === 'mobile') {
+          mobilePauseBtn.style.display = 'block';
+        } else {
+          mobilePauseBtn.style.display = 'none';
+        }
+        if (document.pointerLockElement) {
+          try { document.exitPointerLock(); } catch(e){}
+        }
+      } else {
+        menuPanel.style.display = 'none';
+        hud.style.display = 'block';
+        overlay.style.display = 'none';
+        
+        if (currentInputMode === 'mobile') {
+          mobileControls.style.display = 'block';
+          mobilePauseBtn.style.display = 'block';
+        } else {
+          mobileControls.style.display = 'none';
+          mobilePauseBtn.style.display = 'none';
+        }
+      }
+    }
+
+    function togglePause() {
+      if (isPaused) {
+        if (currentInputMode === 'pc') {
+          requestPointerLockSafe();
+        } else {
+          setPauseState(false);
+        }
+      } else {
+        setPauseState(true);
+      }
+    }
+
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === document.body) {
+        isLockingPending = false;
+        if (isPaused) setPauseState(false);
+      } else {
+        isLockingPending = false;
+        if (currentInputMode === 'pc' && !isPaused) {
+          setPauseState(true);
+        }
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (currentInputMode === 'pc' && document.pointerLockElement === document.body && !isPaused) {
+        targetCameraYaw -= e.movementX * 0.003 * cameraSensitivity;
+        targetCameraPitch += e.movementY * 0.003 * cameraSensitivity;
+        targetCameraPitch = Math.max(-1.4, Math.min(1.4, targetCameraPitch));
+      }
+    });
+
+    function resetGeneralSettings() {
+      if (!confirm("本当にリセットしますか？")) return;
+      
+      document.getElementById('twr-slider').value = 0.64;
+      updateTWR(0.64, false);
+
+      document.getElementById('sens-slider').value = 1.0;
+      updateSensitivity(1.0, false);
+
+      document.getElementById('res-slider').value = 1.0;
+      updateResolution(1.0, false);
+
+      document.getElementById('map-res-slider').value = 32;
+      updateMapResolution(32, false);
+
+      document.getElementById('map-radius-slider').value = 5000;
+      updateMapRadius(5000, false);
+
+      document.getElementById('far-slider').value = 4500;
+      updateFar(4500, false);
+
+      document.getElementById('fog-type').value = 'exp2';
+      document.getElementById('fog-slider').value = 6531;
+      updateFogMode('exp2', false);
+
+      document.getElementById('shadow-slider').value = 100;
+      updateShadow(100, false);
+
+      document.getElementById('shadow-map-size').value = "2048";
+      updateShadowMapSize(2048, false);
+
+      document.getElementById('blur-slider').value = 0.60;
+      updateBlurValue(0.60, false);
+
+      targetCameraDistance = 12;
+      cameraDistance = 12;
+      updateCameraPositionInstant();
+
+      saveSettings();
+    }
+
+    async function resetSavedModels() {
+      if (!confirm("本当に消去しますか？")) return;
+      await idbClearAllModels();
+      buildDefaultAirplane();
+      saveSettings();
+      setPauseState(true);
+    }
+
+    function resetModelTransformSettings() {
+      if (!confirm("本当にリセットしますか？")) return;
+
+      currentModelData.rotX = 0; currentModelData.rotY = 0; currentModelData.rotZ = 0;
+      currentModelData.scale = 1.0; currentModelData.scaleX = 1; currentModelData.scaleY = 1; currentModelData.scaleZ = 1;
+
+      syncModelTransforms();
+      saveSettings();
+    }
+
+    function saveSettings() {
+      const settings = {
+        twr: document.getElementById('twr-slider').value,
+        sensitivity: document.getElementById('sens-slider').value,
+        resolution: document.getElementById('res-slider').value,
+        mapResolution: document.getElementById('map-res-slider').value,
+        mapRadius: document.getElementById('map-radius-slider').value,
+        far: document.getElementById('far-slider').value,
+        fogType: document.getElementById('fog-type').value,
+        fogVal: document.getElementById('fog-slider').value,
+        shadow: document.getElementById('shadow-slider').value,
+        shadowMapSize: document.getElementById('shadow-map-size').value,
+        blur: document.getElementById('blur-slider').value,
+        cameraDistance: targetCameraDistance,
+        lastModelName: currentModelData ? currentModelData.name : 'デフォルト機体'
+      };
+      try {
+        localStorage.setItem('ai_fs_1_1_settings', JSON.stringify(settings));
+      } catch (e) {}
+    }
+
+    async function saveCurrentToPresets() {
+      if (currentModelData.type === 'default') {
+        alert("デフォルト機体はプリセット保存の必要がありません。");
+        return;
+      }
+      const success = await idbSaveModel({ ...currentModelData });
+      if (success) {
+        saveSettings();
+        await updatePresetUI();
+        statusMsg.textContent = `プリセット保存済: ${currentModelData.name}`;
+      } else {
+        alert("モデルの保存に失敗しました。");
+      }
+    }
+
+    async function loadPreset(id, e) {
+      if (e) e.stopPropagation();
+      if (id === -1) {
+        buildDefaultAirplane();
+      } else {
+        const presets = await idbGetAllModels();
+        const item = presets.find(p => p.id === id);
+        if (item) loadModelFromData(item);
+      }
+      saveSettings();
+      setPauseState(true);
+    }
+
+    async function deleteSelectedPreset(id, e) {
+      if (e) e.stopPropagation();
+      if (id === -1) {
+        alert("デフォルト機体は削除できません。");
+        return;
+      }
+      const presets = await idbGetAllModels();
+      const target = presets.find(p => p.id === id);
+      
+      await idbDeleteModel(id);
+      
+      if (target && currentModelData.name === target.name) {
+        buildDefaultAirplane();
+      } else {
+        await updatePresetUI();
+      }
+      saveSettings();
+      setPauseState(true);
+    }
+
+    async function updatePresetUI() {
+      const presetList = document.getElementById('preset-list');
+      if (!presetList) return;
+      presetList.innerHTML = '';
+
+      const defCard = document.createElement('div');
+      defCard.className = 'preset-card';
+      defCard.innerHTML = `
+        <span class="preset-name">デフォルト機体</span>
+        <div class="preset-actions">
+          <button class="btn-action" onclick="loadPreset(-1, event)">読み込み</button>
+        </div>
+      `;
+      presetList.appendChild(defCard);
+
+      const presets = await idbGetAllModels();
+      presets.forEach((p) => {
+        const card = document.createElement('div');
+        card.className = 'preset-card';
+        card.innerHTML = `
+          <span class="preset-name">${p.name}</span>
+          <div class="preset-actions">
+            <button class="btn-action" onclick="loadPreset(${p.id}, event)">読み込み</button>
+            <button class="btn-danger" onclick="deleteSelectedPreset(${p.id}, event)">削除</button>
+          </div>
+        `;
+        presetList.appendChild(card);
+      });
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64.split(',')[1] || base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    function loadModelFromData(modelData) {
+      currentModelData = { scale: 1.0, scaleX: 1, scaleY: 1, scaleZ: 1, ...modelData };
+      statusMsg.textContent = "読み込み中...";
+
+      const ext = currentModelData.name.split('.').pop().toLowerCase();
+      let loader = ext === 'obj' ? new THREE.OBJLoader() : new THREE.STLLoader();
+      
+      try {
+        if (ext === 'obj') {
+          const binaryString = atob(currentModelData.base64.split(',')[1] || currentModelData.base64);
+          const obj = loader.parse(binaryString);
+          obj.traverse((child) => {
+            if (child.isMesh) {
+              child.geometry.computeVertexNormals();
+              child.material.side = THREE.DoubleSide;
+            }
+          });
+          replaceAirplaneModel(obj, currentModelData.name, false);
+        } else {
+          const buffer = base64ToArrayBuffer(currentModelData.base64);
+          const geometry = loader.parse(buffer);
+          geometry.center();
+          geometry.computeVertexNormals();
+          const material = new THREE.MeshStandardMaterial({ 
+            color: 0x3a86ff, roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide 
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          replaceAirplaneModel(mesh, currentModelData.name, false);
+        }
+      } catch (err) {
+        statusMsg.textContent = "モデルの復元に失敗";
+      }
+    }
+
+    function loadModelFile(file) {
+      if (!file) return;
+      const fileName = file.name.toLowerCase();
+      const reader = new FileReader();
+
+      statusMsg.textContent = "読み込み中...";
+
+      reader.onload = async function(e) {
+        const base64Data = e.target.result;
+        currentModelData = {
+          type: fileName.endsWith('.obj') ? 'obj' : 'stl',
+          name: file.name,
+          base64: base64Data,
+          rotX: 0, rotY: 0, rotZ: 0,
+          scale: 1.0, scaleX: 1, scaleY: 1, scaleZ: 1
+        };
+        loadModelFromData(currentModelData);
+        saveSettings();
+        setPauseState(true);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files.length > 0) {
+        loadModelFile(e.target.files[0]);
+      }
+    }
+
+    window.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        loadModelFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function replaceAirplaneModel(newModel, filename, resetRot = true) {
+      while (modelContainer.children.length > 0) {
+        modelContainer.remove(modelContainer.children[0]);
+      }
+      
+      if (resetRot) {
+        currentModelData.rotX = 0; currentModelData.rotY = 0; currentModelData.rotZ = 0;
+        currentModelData.scale = 1.0; currentModelData.scaleX = 1; currentModelData.scaleY = 1; currentModelData.scaleZ = 1;
+      }
+
+      const box = new THREE.Box3().setFromObject(newModel);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      newModel.position.sub(center);
+
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      if (maxDim > 0) {
+        const targetSize = 6.0;
+        const scale = targetSize / maxDim;
+        newModel.scale.set(scale, scale, scale);
+      }
+
+      applyShadows(newModel);
+      modelContainer.add(newModel);
+      
+      syncModelTransforms();
+      statusMsg.textContent = `読込完: ${filename}`;
+      updatePresetUI();
+    }
+
+    function rotateModelY(e) {
+      if (e) e.stopPropagation();
+      currentModelData.rotY += Math.PI / 2;
+      syncModelTransforms(); saveSettings();
+    }
+    function rotateModelX(e) {
+      if (e) e.stopPropagation();
+      currentModelData.rotX += Math.PI / 2;
+      syncModelTransforms(); saveSettings();
+    }
+    function rotateModelZ(e) {
+      if (e) e.stopPropagation();
+      currentModelData.rotZ += Math.PI / 2;
+      syncModelTransforms(); saveSettings();
+    }
+
+    function flipModelScale(axis) {
+      if (axis === 'x') currentModelData.scaleX = (currentModelData.scaleX || 1) * -1;
+      if (axis === 'y') currentModelData.scaleY = (currentModelData.scaleY || 1) * -1;
+      if (axis === 'z') currentModelData.scaleZ = (currentModelData.scaleZ || 1) * -1;
+      syncModelTransforms(); saveSettings();
+    }
+
+    function updateModelScale(val) {
+      currentModelData.scale = parseFloat(val);
+      syncModelTransforms(); saveSettings();
+    }
+
+    async function restoreSettings() {
+      await initDB();
+      initPreview();
+      initMap();
+      initUICustomizer();
+      buildDefaultAirplane();
+      await updatePresetUI();
+
+      const saved = localStorage.getItem('ai_fs_1_1_settings');
+      if (saved) {
+        try {
+          const settings = JSON.parse(saved);
+          if (settings.twr !== undefined) {
+            document.getElementById('twr-slider').value = settings.twr;
+            updateTWR(settings.twr, false);
+          }
+          if (settings.sensitivity) {
+            document.getElementById('sens-slider').value = settings.sensitivity;
+            updateSensitivity(settings.sensitivity, false);
+          }
+          if (settings.resolution) {
+            document.getElementById('res-slider').value = settings.resolution;
+            updateResolution(settings.resolution, false);
+          }
+          if (settings.mapResolution) {
+            document.getElementById('map-res-slider').value = settings.mapResolution;
+            updateMapResolution(settings.mapResolution, false);
+          }
+          if (settings.mapRadius) {
+            document.getElementById('map-radius-slider').value = settings.mapRadius;
+            updateMapRadius(settings.mapRadius, false);
+          }
+          if (settings.far) {
+            document.getElementById('far-slider').value = settings.far;
+            updateFar(settings.far, false);
+          }
+          if (settings.fogType) document.getElementById('fog-type').value = settings.fogType;
+          if (settings.fogVal) {
+            document.getElementById('fog-slider').value = settings.fogVal;
+            updateFogMode(document.getElementById('fog-type').value, false);
+          }
+          if (settings.shadow) {
+            document.getElementById('shadow-slider').value = settings.shadow;
+            updateShadow(settings.shadow, false);
+          }
+          if (settings.shadowMapSize) {
+            document.getElementById('shadow-map-size').value = settings.shadowMapSize;
+            updateShadowMapSize(settings.shadowMapSize, false);
+          }
+          if (settings.blur) {
+            document.getElementById('blur-slider').value = settings.blur;
+            updateBlurValue(settings.blur, false);
+          }
+          if (settings.cameraDistance !== undefined) {
+            targetCameraDistance = parseFloat(settings.cameraDistance);
+            cameraDistance = targetCameraDistance;
+            updateCameraPositionInstant();
+          }
+
+          if (settings.lastModelName) {
+            const presets = await idbGetAllModels();
+            const lastModel = presets.find(p => p.name === settings.lastModelName);
+            if (lastModel) loadModelFromData(lastModel);
+          }
+        } catch (e) {}
+      }
+
+      setPauseState(true);
+    }
+
+    // --- Mobile Touch Controls ---
+    function initMobileControls() {
+      const joyZone = document.getElementById('joystick-zone');
+      const joyKnob = document.getElementById('joystick-knob');
+      let joyTouchId = null;
+      let joyCenter = { x: 0, y: 0 };
+
+      joyZone.addEventListener('touchstart', (e) => {
+        if (joyTouchId !== null || isUIEditMode) return;
+        const touch = e.changedTouches[0];
+        joyTouchId = touch.identifier;
+        const rect = joyZone.getBoundingClientRect();
+        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateJoystick(touch);
+        e.preventDefault();
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (isUIEditMode) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === joyTouchId) {
+            updateJoystick(e.changedTouches[i]);
+            e.preventDefault();
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const endJoy = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === joyTouchId) {
+            joyTouchId = null;
+            joyKnob.style.transform = `translate(0px, 0px)`;
+            mobileInputs.pitch = 0;
+            mobileInputs.roll = 0;
+            break;
+          }
+        }
+      };
+      window.addEventListener('touchend', endJoy);
+      window.addEventListener('touchcancel', endJoy);
+
+      const thrZone = document.getElementById('throttle-zone');
+      const thrHandle = document.getElementById('throttle-handle');
+      let thrTouchId = null;
+
+      function updateThrottle(touch) {
+        const rect = thrZone.getBoundingClientRect();
+        let y = touch.clientY - rect.top;
+        y = Math.max(0, Math.min(rect.height, y));
+        
+        throttle = 1.0 - (y / rect.height);
+        thrHandle.style.bottom = `${throttle * 100}%`;
+      }
+
+      thrZone.addEventListener('touchstart', (e) => {
+        if (thrTouchId !== null || isUIEditMode) return;
+        const touch = e.changedTouches[0];
+        thrTouchId = touch.identifier;
+        updateThrottle(touch);
+        e.preventDefault();
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (isUIEditMode) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === thrTouchId) {
+            updateThrottle(e.changedTouches[i]);
+            e.preventDefault();
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const endThr = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === thrTouchId) {
+            thrTouchId = null;
+            break;
+          }
+        }
+      };
+      window.addEventListener('touchend', endThr);
+      window.addEventListener('touchcancel', endThr);
+
+      const btnRudderL = document.getElementById('btn-rudder-left');
+      const btnRudderR = document.getElementById('btn-rudder-right');
+
+      btnRudderL.addEventListener('touchstart', (e) => { if(!isUIEditMode){ e.preventDefault(); mobileInputs.yaw = 1; } }, { passive: false });
+      btnRudderL.addEventListener('touchend', (e) => { if(!isUIEditMode){ e.preventDefault(); mobileInputs.yaw = 0; } }, { passive: false });
+      btnRudderR.addEventListener('touchstart', (e) => { if(!isUIEditMode){ e.preventDefault(); mobileInputs.yaw = -1; } }, { passive: false });
+      btnRudderR.addEventListener('touchend', (e) => { if(!isUIEditMode){ e.preventDefault(); mobileInputs.yaw = 0; } }, { passive: false });
+
+      let cameraTouches = [];
+      let initialPinchDist = 0;
+      let initialCameraDist = 12;
+      let lastCamPos = { x: 0, y: 0 };
+
+      window.addEventListener('touchstart', (e) => {
+        if (isPaused || currentInputMode !== 'mobile' || isUIEditMode) return;
+        cameraTouches = Array.from(e.touches).filter(t => t.identifier !== joyTouchId && t.identifier !== thrTouchId);
+
+        if (cameraTouches.length === 1) {
+          lastCamPos = { x: cameraTouches[0].clientX, y: cameraTouches[0].clientY };
+        } else if (cameraTouches.length >= 2) {
+          const dx = cameraTouches[0].clientX - cameraTouches[1].clientX;
+          const dy = cameraTouches[0].clientY - cameraTouches[1].clientY;
+          initialPinchDist = Math.hypot(dx, dy);
+          initialCameraDist = targetCameraDistance;
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (isPaused || currentInputMode !== 'mobile' || isUIEditMode) return;
+        cameraTouches = Array.from(e.touches).filter(t => t.identifier !== joyTouchId && t.identifier !== thrTouchId);
+
+        if (cameraTouches.length === 1) {
+          const t = cameraTouches[0];
+          const dx = t.clientX - lastCamPos.x;
+          const dy = t.clientY - lastCamPos.y;
+
+          targetCameraYaw -= dx * 0.005 * cameraSensitivity;
+          targetCameraPitch += dy * 0.005 * cameraSensitivity;
+          targetCameraPitch = Math.max(-1.4, Math.min(1.4, targetCameraPitch));
+
+          lastCamPos = { x: t.clientX, y: t.clientY };
+        } else if (cameraTouches.length >= 2) {
+          const dx = cameraTouches[0].clientX - cameraTouches[1].clientX;
+          const dy = cameraTouches[0].clientY - cameraTouches[1].clientY;
+          const currentPinchDist = Math.hypot(dx, dy);
+
+          if (initialPinchDist > 0) {
+            const factor = initialPinchDist / currentPinchDist;
+            targetCameraDistance = Math.max(3, Math.min(50, initialCameraDist * factor));
+            saveSettings();
+          }
+        }
+      }, { passive: true });
+    }
+
+    initMobileControls();
+
+    document.getElementById('menu-panel').addEventListener('click', (e) => e.stopPropagation());
+
+    window.addEventListener('wheel', (e) => {
+      if (isPaused) return;
+      targetCameraDistance += e.deltaY * 0.01;
+      targetCameraDistance = Math.max(3, Math.min(50, targetCameraDistance));
+      saveSettings();
+    }, { passive: true });
+
+    window.addEventListener('keydown', (e) => { 
+      if (e.key === 'Escape') {
+        togglePause();
+        return;
+      }
+
+      const k = e.key.toLowerCase();
+      keys[k] = true; 
+      if (e.key === ' ') keys['space'] = true;
+      if (k === 'r') rotateModelY();
+      if (k === 't') rotateModelX();
+      if (k === 'y') rotateModelZ();
+    });
+
+    window.addEventListener('keyup', (e) => { 
+      const k = e.key.toLowerCase();
+      keys[k] = false; 
+      if (e.key === ' ') keys['space'] = false;
+    });
+
+    function handleResize() {
+      const width = window.innerWidth || document.documentElement.clientWidth;
+      const height = window.innerHeight || document.documentElement.clientHeight;
+      
+      if (width === 0 || height === 0) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const currentPR = dpr * resolutionScale;
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+
+      renderer.setPixelRatio(currentPR);
+      renderer.setSize(width, height, true);
+
+      composer.setPixelRatio(currentPR);
+
+      const actualWidth = Math.floor(width * currentPR);
+      const actualHeight = Math.floor(height * currentPR);
+
+      if (renderTarget) {
+        renderTarget.setSize(actualWidth, actualHeight);
+      }
+      composer.setSize(width, height);
+
+      if (fxaaPass && fxaaPass.uniforms['resolution']) {
+        fxaaPass.uniforms['resolution'].value.x = 1 / actualWidth;
+        fxaaPass.uniforms['resolution'].value.y = 1 / actualHeight;
+      }
+
+      resizePreviewCanvas();
+      updateMapPosition();
+    }
+
+    window.addEventListener('resize', handleResize);
+    
+    window.addEventListener('orientationchange', () => {
+      handleResize();
+      setTimeout(handleResize, 200);
+      setTimeout(handleResize, 500);
+    });
+
+    // --- 2Dミニマップ描画関数 ---
+    function renderMap() {
+      if (!mapCtx) return;
+
+      const width = mapCanvas.width;
+      const height = mapCanvas.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      mapCtx.clearRect(0, 0, width, height);
+
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+      const heading = Math.atan2(forward.x, forward.z) + Math.PI;
+
+      mapCtx.save();
+      mapCtx.translate(centerX, centerY);
+      mapCtx.rotate(heading);
+
+      const gridSize = mapGridResolution;
+      const step = (mapRadius * 2) / gridSize;
+      const pxStep = width / gridSize;
+
+      for (let i = 0; i < gridSize; i++) {
+        for (let j = 0; j < gridSize; j++) {
+          const worldX = airplane.position.x - mapRadius + (i + 0.5) * step;
+          const worldZ = airplane.position.z - mapRadius + (j + 0.5) * step;
+          const h = getTerrainHeight(worldX, worldZ);
+
+          if (h <= 200) {
+            mapCtx.fillStyle = '#3d8b43';
+          } else if (h < 700) {
+            const t = (h - 200) / 500;
+            const r = Math.round(0x3d + (0x72 - 0x3d) * t);
+            const g = Math.round(0x8b + (0x7d - 0x8b) * t);
+            const b = Math.round(0x43 + (0x6a - 0x43) * t);
+            mapCtx.fillStyle = `rgb(${r},${g},${b})`;
+          } else if (h <= 950) {
+            const t = (h - 700) / 250;
+            const r = Math.round(0x72 + (0xff - 0x72) * t);
+            const g = Math.round(0x7d + (0xff - 0x7d) * t);
+            const b = Math.round(0x6a + (0xff - 0x6a) * t);
+            mapCtx.fillStyle = `rgb(${r},${g},${b})`;
+          } else {
+            mapCtx.fillStyle = '#ffffff';
+          }
+
+          const px = (i - gridSize / 2) * pxStep;
+          const py = (j - gridSize / 2) * pxStep;
+          mapCtx.fillRect(px, py, pxStep + 0.5, pxStep + 0.5);
+        }
+      }
+
+      mapCtx.restore();
+    }
+
+    // 物理演算統合メイン関数
+    function updatePhysics(delta) {
+      // 1. スロットル制御
+      if (keys['shift']) throttle = Math.min(1.0, throttle + 0.5 * delta);
+      if (keys['space']) throttle = Math.max(0.0, throttle - 0.5 * delta);
+
+      // 2. 入力取得 (コントロールサーフェス目標値)
+      pitchInput = 0; rollInput = 0; yawInput = 0;
+      if (currentInputMode === 'pc') {
+        if (keys['w']) pitchInput += 1.0;
+        if (keys['s']) pitchInput -= 1.0;
+        if (keys['a']) rollInput -= 1.0;
+        if (keys['d']) rollInput += 1.0;
+        if (keys['q']) yawInput += 1.0;
+        if (keys['e']) yawInput -= 1.0;
+      } else {
+        pitchInput = mobileInputs.pitch;
+        rollInput = mobileInputs.roll;
+        yawInput = mobileInputs.yaw;
+      }
+
+      // 3. ローカル座標軸ベクトルの算出
+      const quat = airplane.quaternion;
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
+
+      // ローカル速度成分 (Vx: 右, Vy: 上, Vz: 前方)
+      const invQuat = quat.clone().invert();
+      const localVel = velocity.clone().applyQuaternion(invQuat);
+
+      const airSpeed = velocity.length();
+      
+      // 空気密度 calculation (高度依存)
+      const altitude = Math.max(0, airplane.position.y);
+      const airDensity = 1.225 * Math.exp(-altitude / 9000.0); // ISA 近似 (kg/m^3)
+      const dynamicPressure = 0.5 * airDensity * airSpeed * airSpeed; // 動圧 q = 1/2 * rho * v^2
+
+      // 4. 迎え角 (AoA: Angle of Attack) と 横滑り角 (Sideslip)
+      let aoa = 0.0;
+      if (Math.abs(localVel.z) > 0.1) {
+        aoa = Math.atan2(-localVel.y, localVel.z);
+      }
+      
+      let sideslip = 0.0;
+      if (airSpeed > 0.1) {
+        sideslip = Math.asin(Math.max(-1.0, Math.min(1.0, localVel.x / airSpeed)));
+      }
+
+      // 5. 揚力・抗力・横滑り力の決定 (Aerodynamic Coefficients)
+      const absAoA = Math.abs(aoa);
+      let isStalled = false;
+      let CL = 0.0;
+
+      if (absAoA < STALL_ANGLE) {
+        // 通常飛行域: CL = 2 * PI * AoA (薄翼理論近似)
+        CL = 5.5 * aoa;
+      } else {
+        // 失速域: 揚力が低下し抗力が急増
+        isStalled = true;
+        const stallFactor = Math.exp(- (absAoA - STALL_ANGLE) * 4.0);
+        CL = 5.5 * STALL_ANGLE * Math.sign(aoa) * (0.4 + 0.6 * stallFactor);
+      }
+
+      // グラウンドエフェクト (Ground Effect)
+      const groundY = getTerrainHeight(airplane.position.x, airplane.position.z);
+      const heightAboveGround = Math.max(0.5, airplane.position.y - groundY);
+      const groundEffectFactor = Math.min(1.0, heightAboveGround / WING_SPAN);
+      const groundEffectMult = 1.0 + (1.0 - groundEffectFactor) * 0.25;
+      CL *= groundEffectMult;
+
+      // 抗力係数 CD (Parasite Drag + Induced Drag)
+      const CD0 = 0.025; // 有害抗力係数
+      const AR = (WING_SPAN * WING_SPAN) / WING_AREA; // アスペクト比
+      const e = 0.8; // Oswald効率因子
+      const CDi = (CL * CL) / (Math.PI * AR * e) * groundEffectFactor; // 誘導抗力
+      const CD_Stall = isStalled ? Math.pow(Math.sin(aoa), 2) * 1.2 : 0;
+      const CD = CD0 + CDi + CD_Stall;
+
+      // 横滑り係数 CY
+      const CY = -2.0 * sideslip;
+
+      // 6. 空力ベクトルの計算
+      const liftForceMagnitude = dynamicPressure * WING_AREA * CL;
+      const dragForceMagnitude = dynamicPressure * WING_AREA * CD;
+      const sideForceMagnitude = dynamicPressure * WING_AREA * CY;
+
+      // 速度ベクトルに逆らう方向の抗力
+      const dragForce = velocity.clone().multiplyScalar(-1).normalize().multiplyScalar(dragForceMagnitude);
+      // 翼に垂直な方向の揚力
+      const liftForce = up.clone().multiplyScalar(liftForceMagnitude);
+      // 横滑り力
+      const sideForce = right.clone().multiplyScalar(sideForceMagnitude);
+
+      // 7. 推力・重力の計算
+      const thrustForce = forward.clone().multiplyScalar(throttle * MAX_THRUST);
+      const gravityForce = new THREE.Vector3(0, -MASS * GRAVITY, 0);
+
+      // 全外力合計 (Total Force)
+      const totalForce = new THREE.Vector3()
+        .add(thrustForce)
+        .add(gravityForce)
+        .add(dragForce)
+        .add(liftForce)
+        .add(sideForce);
+
+      // 8. 運動方程式による速度更新 (F = ma => a = F/m)
+      const acceleration = totalForce.divideScalar(MASS);
+      const prevVelocity = velocity.clone();
+      velocity.addScaledVector(acceleration, delta);
+
+      // Gフォース算出 (垂直G)
+      const deltaV = velocity.clone().sub(prevVelocity);
+      const totalAcc = deltaV.divideScalar(delta).sub(new THREE.Vector3(0, -GRAVITY, 0));
+      const gForce = totalAcc.dot(up) / GRAVITY;
+
+      // UI update for G-Force
+      if (gForceText) {
+        gForceText.textContent = gForce.toFixed(1);
+      }
+
+      // 9. 空力モーメントと回転（Pitch, Roll, Yaw）の計算
+      const controlEffectiveness = Math.min(1.5, dynamicPressure / 800.0);
+
+      const pitchTorque = (pitchInput * 4500.0 * controlEffectiveness) - (angularVelocity.x * 2500.0) + (aoa * 1500.0);
+      const rollTorque = (rollInput * 3500.0 * controlEffectiveness) - (angularVelocity.z * 1800.0);
+      const yawTorque = (yawInput * 2000.0 * controlEffectiveness) - (angularVelocity.y * 1200.0) + (sideslip * 2000.0);
+
+      // 角加速度 (α = Torque / Inertia)
+      const angularAcc = new THREE.Vector3(
+        pitchTorque / I_PITCH,
+        yawTorque / I_YAW,
+        rollTorque / I_ROLL
+      );
+
+      angularVelocity.addScaledVector(angularAcc, delta);
+
+      // 回転の適用
+      airplane.rotateX(angularVelocity.x * delta);
+      airplane.rotateY(angularVelocity.y * delta);
+      airplane.rotateZ(angularVelocity.z * delta);
+
+      // 10. 位置更新と接地・滑走物理判定（テクスチャ・正確なメッシュ当たり判定 & 滑らかな接地処理）
+      const substeps = 4;
+      const subDelta = delta / substeps;
+
+      for (let s = 0; s < substeps; s++) {
+        airplane.position.addScaledVector(velocity, subDelta);
+
+        // テクスチャ・機体モデルの正確なサイズに即した動的判定半径
+        const sphereRadius = currentPlaneRadius;
+        const p = airplane.position;
+        const terrainY = getTerrainHeight(p.x, p.z);
+
+        if (p.y - sphereRadius < terrainY) {
+          const penetration = terrainY - (p.y - sphereRadius);
+          
+          // 地形法線の算出
+          const d = 0.5;
+          const hL = getTerrainHeight(p.x - d, p.z);
+          const hR = getTerrainHeight(p.x + d, p.z);
+          const hB = getTerrainHeight(p.x, p.z - d);
+          const hF = getTerrainHeight(p.x, p.z + d);
+          const normal = new THREE.Vector3(hL - hR, 2.0 * d, hB - hF).normalize();
+
+          // 位置の補正
+          p.addScaledVector(normal, penetration);
+
+          // 地面接触時の物理挙動の修正（急激な減速や動けなくなるスタック現象の回避）
+          const vDotN = velocity.dot(normal);
+          if (vDotN < 0) {
+            // 法線方向の速度成分（垂直衝突成分）を除去して弾ませずにスムーズにスライドさせる
+            velocity.sub(normal.clone().multiplyScalar(vDotN));
+
+            // 地面との適度な転がり・滑走摩擦（過度な摩擦減速を抑えて動けなくなる現象を解消）
+            const frictionFactor = 0.985;
+            velocity.x *= frictionFactor;
+            velocity.z *= frictionFactor;
+
+            // 回転速度の緩やかな衰減
+            angularVelocity.multiplyScalar(0.9);
+          }
+        }
+      }
+    }
+
+    const clock = new THREE.Clock();
+
+    restoreSettings();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      updateMapPosition();
+
+      const delta = Math.min(clock.getDelta(), 0.1);
+
+      if (isPaused) {
+        if (previewGroup) {
+          if (document.getElementById('tab-model-settings').classList.contains('active')) {
+            previewRenderer.render(previewScene, previewCamera);
+          }
+        }
+        composer.render();
+        renderMap();
+        return;
+      }
+
+      // --- 物理エンジンの実行 ---
+      updatePhysics(delta);
+
+      // HUD UIの更新
+      thrustText.textContent = `${Math.round(throttle * 100)}%`;
+      thrustFill.style.width = `${Math.round(throttle * 100)}%`;
+      const thrHandle = document.getElementById('throttle-handle');
+      if (thrHandle) thrHandle.style.bottom = `${throttle * 100}%`;
+
+      const speedKmh = velocity.length() * 3.6;
+
+      const targetFov = Math.min(90, 60 + (speedKmh * (30 / 800)));
+      camera.fov = targetFov;
+      camera.updateProjectionMatrix();
+
+      speedText.textContent = speedKmh.toFixed(1);
+      altText.textContent = airplane.position.y.toFixed(1);
+      posXText.textContent = airplane.position.x.toFixed(0);
+      posYText.textContent = airplane.position.y.toFixed(0);
+      posZText.textContent = airplane.position.z.toFixed(0);
+
+      // --- ライトと影の追従更新 ---
+      const lightOffset = new THREE.Vector3(300, 600, 300);
+      dirLight.position.copy(airplane.position).add(lightOffset);
+      dirLight.target.position.copy(airplane.position);
+      dirLight.target.updateMatrixWorld();
+
+      // シャドウカメラの範囲を動的に機体中心へフィット
+      const sc = dirLight.shadow.camera;
+      sc.left = -shadowDist;
+      sc.right = shadowDist;
+      sc.top = shadowDist;
+      sc.bottom = -shadowDist;
+      sc.near = 1.0;
+      sc.far = 2000.0;
+      sc.updateProjectionMatrix();
+
+      // カメラ制御用のHeading更新
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+      const targetHeading = Math.atan2(forward.x, forward.z);
+      let diffHeading = targetHeading - currentPlaneHeading;
+      while (diffHeading < -Math.PI) diffHeading += Math.PI * 2;
+      while (diffHeading > Math.PI) diffHeading -= Math.PI * 2;
+      currentPlaneHeading += diffHeading * Math.min(1.0, delta * 5.0);
+
+      cameraYaw += (targetCameraYaw - cameraYaw) * Math.min(1.0, delta * 12.0);
+      cameraPitch += (targetCameraPitch - cameraPitch) * Math.min(1.0, delta * 12.0);
+      cameraDistance += (targetCameraDistance - cameraDistance) * Math.min(1.0, delta * 12.0);
+
+      updateCameraPositionInstant();
+
+      composer.render();
+      renderMap();
+    }
+
+    window.onload = function() {
+      handleResize();
+      animate();
+    };
+  </script>
+</body>
+</html>
